@@ -179,28 +179,12 @@ class RNAudioRecorderPlayer: RCTEventEmitter, AVAudioRecorderDelegate {
 
         let encoding = audioSets["AVFormatIDKeyIOS"] as? String
         let mode = audioSets["AVModeIOS"] as? String
-        let avLPCMBitDepth = audioSets["AVLinearPCMBitDepthKeyIOS"] as? Int
-        let avLPCMIsBigEndian = audioSets["AVLinearPCMIsBigEndianKeyIOS"] as? Bool
-        let avLPCMIsFloatKey = audioSets["AVLinearPCMIsFloatKeyIOS"] as? Bool
-        let avLPCMIsNonInterleaved = audioSets["AVLinearPCMIsNonInterleavedIOS"] as? Bool
-
+        
         var avMode: AVAudioSession.Mode = AVAudioSession.Mode.default
-        var sampleRate = audioSets["AVSampleRateKeyIOS"] as? Int
-        var numberOfChannel = audioSets["AVNumberOfChannelsKeyIOS"] as? Int
-        var audioQuality = audioSets["AVEncoderAudioQualityKeyIOS"] as? Int
-        var bitRate = audioSets["AVEncoderBitRateKeyIOS"] as? Int
-
-        if (sampleRate == nil) {
-            sampleRate = 44100;
-        }
-
-        guard let avFormat: AudioFormatID = avFormat(fromString: encoding) else {
-            return reject("RNAudioPlayerRecorder", "Audio format not available", nil)
-        }
-
+        
         if (path == "DEFAULT") {
             let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-            let fileExt = fileExtension(forAudioFormat: avFormat)
+            let fileExt = fileExtension(forAudioFormat: avFormat(fromString: encoding)!)
             audioFileURL = cachesDirectory.appendingPathComponent("sound." + fileExt)
         } else {
             setAudioFileURL(path: path)
@@ -228,31 +212,61 @@ class RNAudioRecorderPlayer: RCTEventEmitter, AVAudioRecorderDelegate {
             }
         }
 
-
-        if (numberOfChannel == nil) {
-            numberOfChannel = 2
-        }
-
-        if (audioQuality == nil) {
-            audioQuality = AVAudioQuality.medium.rawValue
-        }
-
-        if (bitRate == nil) {
-            bitRate = 128000
-        }
-
         func startRecording() {
-            let settings = [
-                AVSampleRateKey: sampleRate!,
-                AVFormatIDKey: avFormat,
-                AVNumberOfChannelsKey: numberOfChannel!,
-                AVEncoderAudioQualityKey: audioQuality!,
-                AVLinearPCMBitDepthKey: avLPCMBitDepth ?? AVLinearPCMBitDepthKey.count,
-                AVLinearPCMIsBigEndianKey: avLPCMIsBigEndian ?? true,
-                AVLinearPCMIsFloatKey: avLPCMIsFloatKey ?? false,
-                AVLinearPCMIsNonInterleaved: avLPCMIsNonInterleaved ?? false,
-                 AVEncoderBitRateKey: bitRate!
-            ] as [String : Any]
+            let settings: [String: Any]
+            
+            if (audioFileURL?.pathExtension.lowercased() == "wav" || encoding == "lpcm") {
+                settings = [
+                    AVFormatIDKey: kAudioFormatLinearPCM,
+                    AVSampleRateKey: 16000,
+                    AVNumberOfChannelsKey: 1,
+                    AVLinearPCMBitDepthKey: 16,
+                    AVLinearPCMIsFloatKey: false,
+                    AVLinearPCMIsBigEndianKey: false,
+                    AVLinearPCMIsNonInterleaved: false
+                ]
+            } else {
+                let avLPCMBitDepth = audioSets["AVLinearPCMBitDepthKeyIOS"] as? Int
+                let avLPCMIsBigEndian = audioSets["AVLinearPCMIsBigEndianKeyIOS"] as? Bool
+                let avLPCMIsFloatKey = audioSets["AVLinearPCMIsFloatKeyIOS"] as? Bool
+                let avLPCMIsNonInterleaved = audioSets["AVLinearPCMIsNonInterleavedIOS"] as? Bool
+                var sampleRate = audioSets["AVSampleRateKeyIOS"] as? Int
+                var numberOfChannel = audioSets["AVNumberOfChannelsKeyIOS"] as? Int
+                var audioQuality = audioSets["AVEncoderAudioQualityKeyIOS"] as? Int
+                var bitRate = audioSets["AVEncoderBitRateKeyIOS"] as? Int
+
+                if (sampleRate == nil) {
+                    sampleRate = 44100;
+                }
+                
+                guard let avFormat: AudioFormatID = avFormat(fromString: encoding) else {
+                    return reject("RNAudioPlayerRecorder", "Audio format not available", nil)
+                }
+
+                if (numberOfChannel == nil) {
+                    numberOfChannel = 2
+                }
+
+                if (audioQuality == nil) {
+                    audioQuality = AVAudioQuality.medium.rawValue
+                }
+
+                if (bitRate == nil) {
+                    bitRate = 128000
+                }
+                
+                settings = [
+                    AVSampleRateKey: sampleRate!,
+                    AVFormatIDKey: avFormat,
+                    AVNumberOfChannelsKey: numberOfChannel!,
+                    AVEncoderAudioQualityKey: audioQuality!,
+                    AVLinearPCMBitDepthKey: avLPCMBitDepth ?? AVLinearPCMBitDepthKey.count,
+                    AVLinearPCMIsBigEndianKey: avLPCMIsBigEndian ?? true,
+                    AVLinearPCMIsFloatKey: avLPCMIsFloatKey ?? false,
+                    AVLinearPCMIsNonInterleaved: avLPCMIsNonInterleaved ?? false,
+                     AVEncoderBitRateKey: bitRate!
+                ] as [String : Any]
+            }
 
             do {
                 audioRecorder = try AVAudioRecorder(url: audioFileURL!, settings: settings)
